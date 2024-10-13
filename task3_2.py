@@ -10,7 +10,7 @@ conn = pyodbc.connect(
 
 cursor = conn.cursor()
 
-customers_df = pd.read_csv('northwind/customers.csv', usecols=[0, 1, 2, 3, 4, 5, 6], header=0)
+customers_df = pd.read_csv('northwind/Customers.csv', usecols=[0, 1, 2, 3, 4, 5, 6], header=0)
 
 customers_df.columns = customers_df.columns.str.strip()
 
