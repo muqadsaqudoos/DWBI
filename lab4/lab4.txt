@@ -1,0 +1,254 @@
+1. WITH MonthlySales AS (
+    SELECT 
+        YEAR(o.OrderDate) AS Year, 
+        MONTH(o.OrderDate) AS Month,
+        c.Region AS CustomerState,
+        SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) AS TotalSales
+    FROM Orders o
+    JOIN OrderDetails od ON o.OrderID = od.OrderID
+    JOIN Customers c ON o.CustomerID = c.CustomerID
+    GROUP BY YEAR(o.OrderDate), MONTH(o.OrderDate), c.Region
+)
+SELECT 
+    ms1.Year AS CurrentYear, 
+    ms1.Month AS Month, 
+    ms1.CustomerState, 
+    ms1.TotalSales AS CurrentYearSales,
+    ms2.TotalSales AS PreviousYearSales,
+    (ms1.TotalSales - ms2.TotalSales) AS SalesDifference
+FROM MonthlySales ms1
+LEFT JOIN MonthlySales ms2 
+    ON ms1.CustomerState = ms2.CustomerState
+    AND ms1.Month = ms2.Month
+    AND ms1.Year = ms2.Year + 1
+ORDER BY ms1.CustomerState, ms1.Year, ms1.Month;
+
+
+
+
+
+
+2. WITH MonthlySales AS (
+    SELECT 
+        p.ProductID,
+        YEAR(o.OrderDate) AS Year, 
+        MONTH(o.OrderDate) AS Month,
+        SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) AS TotalSales
+    FROM Orders o
+    JOIN OrderDetails od ON o.OrderID = od.OrderID
+    JOIN Products p ON od.ProductID = p.ProductID
+    GROUP BY p.ProductID, YEAR(o.OrderDate), MONTH(o.OrderDate)
+)
+SELECT 
+    m1.ProductID, 
+    m1.Year, 
+    m1.Month,
+    m1.TotalSales AS CurrentMonthSales,
+    COALESCE(m2.TotalSales, 0) AS PreviousMonthSales,
+    ((m1.TotalSales - COALESCE(m2.TotalSales, 0)) / COALESCE(m2.TotalSales, 1)) * 100 AS GrowthPercentage
+FROM MonthlySales m1
+LEFT JOIN MonthlySales m2 
+    ON m1.ProductID = m2.ProductID 
+    AND (m1.Month = m2.Month + 1 OR (m1.Month = 1 AND m2.Month = 12 AND m1.Year = m2.Year + 1));
+
+
+
+3. SELECT 
+    TOP 3 
+    E.EmployeeID, 
+    E.LastName, 
+    E.FirstName, 
+    SUM(OD.Quantity * OD.UnitPrice) AS TotalSales
+FROM 
+    Employees E
+JOIN 
+    Orders O ON E.EmployeeID = O.EmployeeID
+JOIN 
+    OrderDetails OD ON O.OrderID = OD.OrderID
+GROUP BY 
+    E.EmployeeID, E.LastName, E.FirstName
+ORDER BY 
+    TotalSales DESC;
+
+
+
+4.SELECT 
+    P.ProductID, 
+    P.ProductName, 
+    YEAR(O.OrderDate) AS OrderYear, 
+    E.EmployeeID, 
+    E.LastName, 
+    E.FirstName, 
+    SUM(OD.Quantity * OD.UnitPrice) AS TotalSales
+FROM 
+    Products P
+JOIN 
+    OrderDetails OD ON P.ProductID = OD.ProductID
+JOIN 
+    Orders O ON OD.OrderID = O.OrderID
+JOIN 
+    Employees E ON O.EmployeeID = E.EmployeeID
+GROUP BY 
+    P.ProductID, P.ProductName, YEAR(O.OrderDate), E.EmployeeID, E.LastName, E.FirstName
+ORDER BY 
+    OrderYear, P.ProductID, TotalSales DESC;
+
+
+5. WITH TotalSales AS (
+    SELECT 
+        O.ShipCountry, 
+        SUM(OD.Quantity * OD.UnitPrice) AS CountrySales
+    FROM 
+        Orders O
+    JOIN 
+        OrderDetails OD ON O.OrderID = OD.OrderID
+    GROUP BY 
+        O.ShipCountry
+), CumulativeSales AS (
+    SELECT 
+        ShipCountry, 
+        CountrySales, 
+        SUM(CountrySales) OVER (ORDER BY CountrySales DESC) AS RunningTotal, 
+        SUM(CountrySales) OVER () AS TotalSalesAmount
+    FROM 
+        TotalSales
+)
+SELECT 
+    ShipCountry, 
+    CountrySales
+FROM 
+    CumulativeSales
+WHERE 
+    TotalSalesAmount > 0 -- Check if there are sales
+    AND RunningTotal <= 0.5 * TotalSalesAmount;
+
+
+6.SELECT 
+    E.EmployeeID, 
+    E.LastName, 
+    E.FirstName, 
+    YEAR(O.OrderDate) AS OrderYear, 
+    SUM(OD.Quantity * OD.UnitPrice) AS TotalSales,
+    AVG(SUM(OD.Quantity * OD.UnitPrice)) OVER (PARTITION BY E.EmployeeID, YEAR(O.OrderDate)) AS AvgMonthlySales
+FROM 
+    Employees E
+JOIN 
+    Orders O ON E.EmployeeID = O.EmployeeID
+JOIN 
+    OrderDetails OD ON O.OrderID = OD.OrderID
+GROUP BY 
+    E.EmployeeID, E.LastName, E.FirstName, YEAR(O.OrderDate)
+ORDER BY 
+    OrderYear;
+
+
+7. SELECT 
+    P.ProductID, 
+    P.ProductName, 
+    YEAR(O.OrderDate) AS OrderYear, 
+    MONTH(O.OrderDate) AS OrderMonth, 
+    SUM(OD.Quantity * OD.UnitPrice) AS TotalSales,
+    SUM(OD.Quantity * OD.UnitPrice * OD.Discount) AS TotalDiscount
+FROM 
+    Products P
+JOIN 
+    OrderDetails OD ON P.ProductID = OD.ProductID
+JOIN 
+    Orders O ON OD.OrderID = O.OrderID
+GROUP BY 
+    P.ProductID, P.ProductName, YEAR(O.OrderDate), MONTH(O.OrderDate)
+ORDER BY 
+    OrderYear, OrderMonth;
+
+
+
+8.SELECT 
+    C.CategoryID, 
+    C.CategoryName, 
+    YEAR(O.OrderDate) AS OrderYear, 
+    MONTH(O.OrderDate) AS OrderMonth, 
+    SUM(OD.Quantity * OD.UnitPrice) AS MonthlySales,
+    SUM(SUM(OD.Quantity * OD.UnitPrice)) OVER (PARTITION BY C.CategoryID ORDER BY YEAR(O.OrderDate), MONTH(O.OrderDate)) AS YearToDateSales
+FROM 
+    Categories C
+JOIN 
+    Products P ON C.CategoryID = P.CategoryID
+JOIN 
+    OrderDetails OD ON P.ProductID = OD.ProductID
+JOIN 
+    Orders O ON OD.OrderID = O.OrderID
+GROUP BY 
+    C.CategoryID, C.CategoryName, YEAR(O.OrderDate), MONTH(O.OrderDate)
+ORDER BY 
+    OrderYear, OrderMonth;
+
+
+9.WITH MonthlySales AS (
+    SELECT 
+        c.CategoryID, 
+        YEAR(o.OrderDate) AS Year, 
+        MONTH(o.OrderDate) AS Month,
+        SUM(od.UnitPrice * od.Quantity * (1 - od.Discount)) AS TotalSales
+    FROM Orders o
+    JOIN OrderDetails od ON o.OrderID = od.OrderID
+    JOIN Products p ON od.ProductID = p.ProductID
+    JOIN Categories c ON p.CategoryID = c.CategoryID
+    GROUP BY c.CategoryID, YEAR(o.OrderDate), MONTH(o.OrderDate)
+)
+SELECT 
+    CategoryID, 
+    Year, 
+    Month,
+    AVG(TotalSales) OVER (PARTITION BY CategoryID ORDER BY Year, Month ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS MovingAverageSales
+FROM MonthlySales;
+
+
+
+
+
+
+10. WITH EmployeePersonalSales AS (
+    SELECT 
+        E.EmployeeID, 
+        SUM(OD.Quantity * OD.UnitPrice) AS PersonalSales
+    FROM 
+        Employees E
+    JOIN 
+        Orders O ON E.EmployeeID = O.EmployeeID
+    JOIN 
+        OrderDetails OD ON O.OrderID = OD.OrderID
+    WHERE 
+        YEAR(O.OrderDate) = 1997
+    GROUP BY 
+        E.EmployeeID
+),
+SubordinateSales AS (
+    SELECT 
+        M.EmployeeID, 
+        COALESCE(SUM(OD.Quantity * OD.UnitPrice), 0) AS SubordinateSales
+    FROM 
+        Employees M
+    LEFT JOIN Employees S ON M.EmployeeID = S.ReportsTo  -- Join subordinates with their manager
+    LEFT JOIN Orders O ON S.EmployeeID = O.EmployeeID
+    LEFT JOIN OrderDetails OD ON O.OrderID = OD.OrderID
+    WHERE 
+        YEAR(O.OrderDate) = 1997
+    GROUP BY 
+        M.EmployeeID
+)
+SELECT 
+    E.EmployeeID, 
+    E.LastName, 
+    E.FirstName, 
+    COALESCE(PS.PersonalSales, 0) AS PersonalSales, 
+    COALESCE(PS.PersonalSales, 0) + COALESCE(SS.SubordinateSales, 0) AS TotalSalesIncludingSubordinates
+FROM 
+    Employees E
+LEFT JOIN 
+    EmployeePersonalSales PS ON E.EmployeeID = PS.EmployeeID
+LEFT JOIN 
+    SubordinateSales SS ON E.EmployeeID = SS.EmployeeID
+WHERE 
+    COALESCE(PS.PersonalSales, 0) > 0 OR COALESCE(SS.SubordinateSales, 0) > 0  -- Filter only employees with sales in 1997
+ORDER BY 
+    E.EmployeeID;
