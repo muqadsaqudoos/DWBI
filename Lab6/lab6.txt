@@ -1,0 +1,190 @@
+QUERY1:
+	SELECT 
+    t.Year,
+    t.MonthName,
+    st.StateName AS CustomerState,
+    SUM(s.SalesAmount) AS TotalSales,
+    LAG(SUM(s.SalesAmount)) OVER (
+        PARTITION BY st.StateName 
+        ORDER BY t.Year, t.MonthNumber
+    ) AS PreviousYearSales
+	FROM 
+		dbo.Sales s
+	JOIN 
+		dbo.Customer c ON s.CustomerKey = c.CustomerKey
+	JOIN 
+		dbo.City ci ON c.CityKey = ci.CityKey
+	JOIN 
+		dbo.State st ON ci.StateKey = st.StateKey
+	JOIN 
+		dbo.Time t ON s.OrderDateKey = t.TimeKey
+	GROUP BY 
+		t.Year, t.MonthName, t.MonthNumber, st.StateName;
+		
+QUERY2:
+	SELECT 
+    t.Year,
+    t.MonthName,
+    p.ProductName,
+    SUM(s.SalesAmount) AS TotalSales,
+    LAG(SUM(s.SalesAmount)) OVER (
+        PARTITION BY p.ProductKey 
+        ORDER BY t.Year, t.MonthNumber
+    ) AS PreviousMonthSales
+	FROM 
+		dbo.Sales s
+	JOIN 
+		dbo.Product p ON s.ProductKey = p.ProductKey
+	JOIN 
+		dbo.Time t ON s.OrderDateKey = t.TimeKey
+	GROUP BY 
+		t.Year, t.MonthName, t.MonthNumber, p.ProductName, p.ProductKey;
+
+QUERY3:
+	SELECT TOP 3
+		e.FirstName + ' ' + e.LastName AS EmployeeName,
+		SUM(s.SalesAmount) AS TotalSales
+	FROM 
+		dbo.Sales s
+	JOIN 
+		dbo.Employee e ON s.EmployeeKey = e.EmployeeKey
+	GROUP BY 
+		e.FirstName, e.LastName
+	ORDER BY 
+		TotalSales DESC;
+		
+QUERY4:
+	SELECT 
+    p.ProductName,
+    t.Year,
+    e.FirstName + ' ' + e.LastName AS EmployeeName,
+    SUM(s.SalesAmount) AS TotalSales
+	FROM 
+		dbo.Sales s
+	JOIN 
+		dbo.Product p ON s.ProductKey = p.ProductKey
+	JOIN 
+		dbo.Employee e ON s.EmployeeKey = e.EmployeeKey
+	JOIN 
+		dbo.Time t ON s.OrderDateKey = t.TimeKey
+	GROUP BY 
+		p.ProductName, t.Year, e.FirstName, e.LastName
+	ORDER BY 
+		p.ProductName, t.Year, TotalSales DESC;
+		
+QUERY5:
+	WITH CountrySales AS (
+    SELECT 
+        co.CountryName,
+        SUM(s.SalesAmount) AS TotalSales
+    FROM 
+        dbo.Sales s
+    JOIN 
+        dbo.Customer c ON s.CustomerKey = c.CustomerKey
+    JOIN 
+        dbo.City ci ON c.CityKey = ci.CityKey
+    JOIN 
+        dbo.Country co ON ci.CountryKey = co.CountryKey
+    GROUP BY 
+        co.CountryName
+	)
+	SELECT 
+		CountryName
+	FROM 
+		CountrySales
+	WHERE 
+		TotalSales >= (SELECT SUM(TotalSales) * 0.5 FROM CountrySales);
+
+QUERY6:
+	SELECT 
+    e.FirstName + ' ' + e.LastName AS EmployeeName,
+    t.Year,
+    SUM(s.SalesAmount) AS TotalSales,
+    AVG(SUM(s.SalesAmount)) OVER (
+        PARTITION BY e.EmployeeKey, t.Year
+    ) AS AvgMonthlySales
+	FROM 
+		dbo.Sales s
+	JOIN 
+		dbo.Employee e ON s.EmployeeKey = e.EmployeeKey
+	JOIN 
+		dbo.Time t ON s.OrderDateKey = t.TimeKey
+	GROUP BY 
+		e.FirstName, e.LastName, e.EmployeeKey, t.Year;
+
+QUERY7:
+	SELECT 
+    p.ProductName,
+    t.Year,
+    t.MonthName,
+    SUM(s.SalesAmount) AS TotalSales,
+    SUM(s.Quantity * s.UnitPrice * s.Discount) AS TotalDiscountAmount
+	FROM 
+		dbo.Sales s
+	JOIN 
+		dbo.Product p ON s.ProductKey = p.ProductKey
+	JOIN 
+		dbo.Time t ON s.OrderDateKey = t.TimeKey
+	GROUP BY 
+		p.ProductName, t.Year, t.MonthName;
+		
+QUERY8:
+	SELECT 
+    cat.CategoryName,
+    t.Year,
+    t.MonthName,
+    SUM(SUM(s.SalesAmount)) OVER (
+        PARTITION BY cat.CategoryKey, t.Year 
+        ORDER BY t.MonthNumber
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+    ) AS YearToDateSales
+	FROM 
+		dbo.Sales s
+	JOIN 
+		dbo.Product p ON s.ProductKey = p.ProductKey
+	JOIN 
+		dbo.Category cat ON p.CategoryKey = cat.CategoryKey
+	JOIN 
+		dbo.Time t ON s.OrderDateKey = t.TimeKey
+	GROUP BY 
+		cat.CategoryName, cat.CategoryKey, t.Year, t.MonthName, t.MonthNumber;
+
+QUERY9:
+	SELECT 
+    cat.CategoryName,
+    t.Year,
+    t.MonthName,
+    AVG(SUM(s.SalesAmount)) OVER (
+        PARTITION BY cat.CategoryKey
+        ORDER BY t.Year, t.MonthNumber
+        ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+    ) AS MovingAvgSales
+	FROM 
+		dbo.Sales s
+	JOIN 
+		dbo.Product p ON s.ProductKey = p.ProductKey
+	JOIN 
+		dbo.Category cat ON p.CategoryKey = cat.CategoryKey
+	JOIN 
+		dbo.Time t ON s.OrderDateKey = t.TimeKey
+	GROUP BY 
+		cat.CategoryName, cat.CategoryKey, t.Year, t.MonthName, t.MonthNumber;
+
+QUERY10:
+	SELECT 
+    e.FirstName + ' ' + e.LastName AS EmployeeName,
+    SUM(s.SalesAmount) AS PersonalSales,
+    SUM(SUM(s.SalesAmount)) OVER (
+        PARTITION BY e.EmployeeKey
+    ) AS TotalSalesWithSubordinates
+	FROM 
+		dbo.Sales s
+	JOIN 
+		dbo.Employee e ON s.EmployeeKey = e.EmployeeKey
+	JOIN 
+		dbo.Time t ON s.OrderDateKey = t.TimeKey
+	WHERE 
+		t.Year = 1997
+	GROUP BY 
+		e.FirstName, e.LastName, e.EmployeeKey;
+
