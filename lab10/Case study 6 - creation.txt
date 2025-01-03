@@ -1,0 +1,45 @@
+SQL Queries for Data Warehouse Creation:
+1. Creating Dimension Tables:
+CREATE TABLE Dim_Products (
+    ProductID INT PRIMARY KEY, -- Unique identifier for products
+    ProductName VARCHAR(100), -- Name of the product
+    Category VARCHAR(50), -- Category of the product (e.g., Furniture, Appliance)
+    Customizations VARCHAR(255) -- Details about available customizations
+);
+
+CREATE TABLE Dim_Customers (
+    CustomerID INT PRIMARY KEY, -- Unique identifier for customers
+    CustomerName VARCHAR(100), -- Full name of the customer
+    Demographics VARCHAR(100), -- Demographic details like age group, gender
+    Feedback TEXT -- Feedback provided by the customer
+);
+
+CREATE TABLE Dim_Time (
+    TimeID INT PRIMARY KEY, -- Unique identifier for time entries
+    Date DATE, -- Full date (YYYY-MM-DD)
+    Year INT, -- Year part of the date
+    Month INT, -- Month part of the date
+    Day INT -- Day part of the date
+);
+
+CREATE TABLE Dim_Location (
+    LocationID INT PRIMARY KEY, -- Unique identifier for locations
+    Region VARCHAR(50), -- Geographical region
+    City VARCHAR(50) -- Specific city
+);
+
+2. Creating Fact Table:
+CREATE TABLE Fact_Sales (
+    SaleID INT PRIMARY KEY, -- Unique identifier for sales transactions
+    ProductID INT, -- References the product sold
+    CustomerID INT, -- References the customer who made the purchase
+    TimeID INT, -- References the time of the transaction
+    LocationID INT, -- References the location of the transaction
+    QuantitySold INT, -- Number of units sold
+    Revenue DECIMAL(10, 2), -- Revenue generated from the sale
+    DeliveryTimeInDays INT, -- Time taken for delivery in days
+    FOREIGN KEY (ProductID) REFERENCES Dim_Products(ProductID),
+    FOREIGN KEY (CustomerID) REFERENCES Dim_Customers(CustomerID),
+    FOREIGN KEY (TimeID) REFERENCES Dim_Time(TimeID),
+    FOREIGN KEY (LocationID) REFERENCES Dim_Location(LocationID)
+);
